@@ -142,7 +142,13 @@ const AdminInvestValidatePage = () => {
 
       if (data.success) {
         setFeedback(`✅ Paiement validé manuellement pour ${intention.full_name}`);
+        // Retirer l'intention immédiatement
         setIntentions((prev) => prev.filter((i) => i.id !== intention.id));
+
+        // Recharger pour mettre à jour tous les onglets
+        setTimeout(() => {
+          fetchData();
+        }, 500);
       } else {
         setFeedback("❌ Erreur lors de la validation manuelle. Voir console.");
         console.error(data);

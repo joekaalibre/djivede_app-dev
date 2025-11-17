@@ -17,11 +17,8 @@ export function useResyncIfNeeded() {
         .maybeSingle();
 
       if (!profile?.full_name || !profile?.phone) {
-        await fetch("/api/resync-user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, email: user.email }),
-        });
+        // Resync sera géré automatiquement par les edge functions lors de la validation
+        console.log("Profile incomplet pour:", user.email);
       }
     };
 

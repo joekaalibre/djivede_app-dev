@@ -45,24 +45,23 @@ const AdminValidatedPaymentsPage = () => {
       // Récupérer tous les invest_subscribers payés
       const { data: subscribers, error: subError } = await supabase
         .from("invest_subscribers")
-        .select(`
-          id,
-          user_id,
-          email,
-          full_name,
-          amount_paid,
-          created_at,
-          project_ref,
-          invest_projects (title)
-        `)
+        .select("id, user_id, email, full_name, amount_paid, created_at, project_ref")
         .eq("paid", true)
         .order("created_at", { ascending: false });
 
       if (subError) throw subError;
 
+      // Récupérer les projets séparément
+      const projectIds = [...new Set(subscribers?.map((s) => s.project_ref).filter(Boolean))] as string[];
+      const { data: projects } = await supabase
+        .from("invest_projects")
+        .select("id, title")
+        .in("id", projectIds);
+
+      const projectsMap = Object.fromEntries((projects || []).map((p: any) => [p.id, p.title]));
+
       // Récupérer les engagements associés
       const userIds = [...new Set(subscribers?.map((s) => s.user_id).filter(Boolean))];
-      const projectIds = [...new Set(subscribers?.map((s) => s.project_ref).filter(Boolean))];
 
       const { data: engagements, error: engError } = await supabase
         .from("invest_engagements")
@@ -83,7 +82,7 @@ const AdminValidatedPaymentsPage = () => {
           user_id: sub.user_id,
           email: sub.email,
           full_name: sub.full_name,
-          project_title: sub.invest_projects?.title || "—",
+          project_title: projectsMap[sub.project_ref] || "—",
           amount_paid: Number(sub.amount_paid || 0),
           created_at: sub.created_at,
           engagement_id: engagement?.id,

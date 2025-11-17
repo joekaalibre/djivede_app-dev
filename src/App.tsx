@@ -37,6 +37,7 @@ import InvestorProfilePage from "./pages/InvestorProfilePage";
 import InvestorProjectsPage from "./pages/InvestorProjectsPage";
 import InvestorDocumentsPage from "./pages/InvestorDocumentsPage";
 import InvestorNotificationsPage from "./pages/InvestorNotificationsPage";
+import InvestorInvestmentsOverviewPage from "./pages/InvestorInvestmentsOverviewPage";
 
 // 🚀 Propulse (candidat)
 import PropulsePhase2Page from "./pages/PropulsePhase2Page";
@@ -104,6 +105,7 @@ function App() {
               <Route path="investissements" element={<InvestorInvestmentsPage />} />
               <Route path="projets/:id/suivi" element={<InvestorProjectTrackingPage />} />
               <Route path="mes-projets" element={<InvestorProjectsPage />} />
+              <Route path="mes-investissements" element={<InvestorInvestmentsOverviewPage />} />
               <Route path="profil" element={<InvestorProfilePage />} />
               <Route path="notifications" element={<InvestorNotificationsPage />} />
 

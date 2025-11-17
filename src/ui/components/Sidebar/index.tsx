@@ -15,7 +15,8 @@ import {
   LogOut,
   ChevronDown,
   ChevronRight,
-  MessageCircle, // <-- icône messagerie
+  MessageCircle,
+  PieChart,
 } from "lucide-react";
 import {
   Drawer,
@@ -238,8 +239,9 @@ const Sidebar = ({
       ),
     },
     { to: "/dashboard/mes-projets", label: "Suivi des projets", icon: <FolderKanban size={20} /> },
+    { to: "/dashboard/mes-investissements", label: "Vue d'ensemble", icon: <PieChart size={20} /> },
 
-    // Messagerie pour investisseurs (si tu veux l’activer aussi)
+    // Messagerie pour investisseurs (si tu veux l'activer aussi)
     { to: "/dashboard/messages", label: "Messagerie", icon: <MessageCircle size={20} /> },
 
     {

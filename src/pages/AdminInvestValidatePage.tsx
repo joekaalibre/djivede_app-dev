@@ -82,53 +82,74 @@ const AdminInvestValidatePage = () => {
 
   const handleValidation = async (engagement, action: "validé" | "rejeté") => {
     setFeedback("");
-    const res = await fetchApi("/validate-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        engagement_id: engagement.id,
-        user_id: engagement.user_id,
-        email: engagement.profiles?.email,
-        full_name: engagement.profiles?.full_name,
-        project_id: engagement.project_id,
-        amount: engagement.amount,
-        action,
-      }),
-    });
+    try {
+      // ✅ Appel direct à l'edge function Supabase
+      const { data, error } = await supabase.functions.invoke('validate-payment', {
+        body: {
+          engagement_id: engagement.id,
+          user_id: engagement.user_id,
+          email: engagement.profiles?.email,
+          full_name: engagement.profiles?.full_name,
+          project_id: engagement.project_id,
+          amount: engagement.engagement_amount || engagement.amount,
+          action,
+        },
+      });
 
-    if (res.success) {
-      setFeedback(`Engagement ${action} avec succès pour ${engagement.profiles?.full_name}`);
-      setEngagements((prev) => prev.filter((e) => e.id !== engagement.id));
-    } else {
-      setFeedback("Erreur lors de la validation. Voir console.");
-      console.error(res);
+      if (error) throw error;
+      const res = data;
+
+      if (res.success) {
+        setFeedback(`✅ Engagement ${action} avec succès pour ${engagement.profiles?.full_name}`);
+        setEngagements((prev) => prev.filter((e) => e.id !== engagement.id));
+        if (action === "validé") {
+          // Recharger les validés
+          const { data: validated } = await supabase
+            .from("invest_engagements")
+            .select("*, profiles(full_name, email), invest_projects(title)")
+            .eq("status", "validé")
+            .order("created_at", { ascending: false });
+          if (validated) setValidatedInvestments(validated);
+        }
+      } else {
+        setFeedback("❌ Erreur lors de la validation. Voir console.");
+        console.error(res);
+      }
+    } catch (err: any) {
+      setFeedback(`❌ Erreur: ${err.message}`);
+      console.error(err);
     }
   };
 
   const handleManualValidation = async (intention) => {
     console.log("🟡 Envoi validation manuelle pour:", intention);
-    const res = await fetchApi("/validate-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        engagement_id: "simulateur",
-        user_id: intention.user_id,
-        email: intention.email,
-        full_name: intention.full_name,
-        project_id: intention.project_id,
-        amount: intention.amount,
-        action: "validé",
-      }),
-    });
+    try {
+      // ✅ Appel direct à l'edge function Supabase
+      const { data, error } = await supabase.functions.invoke('validate-payment', {
+        body: {
+          engagement_id: "simulateur",
+          user_id: intention.user_id,
+          email: intention.email,
+          full_name: intention.full_name,
+          project_id: intention.project_id,
+          amount: intention.amount,
+          action: "validé",
+        },
+      });
 
-    console.log("🔵 Réponse back:", res);
+      if (error) throw error;
+      console.log("✅ Réponse Supabase:", data);
 
-    if (res.success) {
-      setFeedback(`Paiement validé manuellement pour ${intention.full_name}`);
-      setIntentions((prev) => prev.filter((i) => i.id !== intention.id));
-    } else {
-      setFeedback("Erreur lors de la validation manuelle. Voir console.");
-      console.error(res);
+      if (data.success) {
+        setFeedback(`✅ Paiement validé manuellement pour ${intention.full_name}`);
+        setIntentions((prev) => prev.filter((i) => i.id !== intention.id));
+      } else {
+        setFeedback("❌ Erreur lors de la validation manuelle. Voir console.");
+        console.error(data);
+      }
+    } catch (err: any) {
+      setFeedback(`❌ Erreur: ${err.message}`);
+      console.error(err);
     }
   };
 

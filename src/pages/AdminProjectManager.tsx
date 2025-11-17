@@ -107,6 +107,15 @@ const AdminProjectManager = () => {
           >
             ✏️ Modifier
           </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            onClick={() => navigate(`/dashboard/admin/projects/${project.id}/phases`)}
+            sx={{ fontSize: "0.75rem", px: 1 }}
+          >
+            📊 Phases
+          </Button>
         </Box>
         {project.status === "actif" && (
           <IconButton onClick={() => handleDisable(project.id)} title="Désactiver">

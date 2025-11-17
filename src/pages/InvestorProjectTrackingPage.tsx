@@ -58,8 +58,8 @@ const InvestorProjectTrackingPage = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("invest_engagements")
-        .select("id, contract_url, contract_signed, contract_status, invest_projects(title)")
-        .eq("project_ref", id)
+        .select("id, contract_url, contract_signed, status, invest_projects(title)")
+        .eq("project_id", id)
         .maybeSingle();
 
       if (error) {
@@ -77,13 +77,14 @@ const InvestorProjectTrackingPage = () => {
         id: data.id,
         contract_url: data.contract_url,
         contract_signed: data.contract_signed,
-        validated: data.contract_status === "validé",
+        validated: data.status === "validé",
         project_title: data.invest_projects?.title || "Projet inconnu",
       };
 
       setEngagement(current);
 
-      if (current.contract_signed && current.validated) {
+      // Toujours afficher les phases si l'investissement est validé
+      if (current.validated) {
         const { data: updates } = await supabase
           .from("project_updates")
           .select("*")
@@ -117,24 +118,7 @@ const InvestorProjectTrackingPage = () => {
 
           {!engagement?.validated ? (
             <Alert severity="warning" sx={{ mt: 2 }}>
-              Votre investissement n’a pas encore été validé par l’équipe. Merci de patienter.
-            </Alert>
-          ) : !engagement.contract_signed ? (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Vous n’avez pas encore signé le contrat de ce projet.
-              {engagement.contract_url && (
-                <Box mt={2}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    href={engagement.contract_url}
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    📄 Signer le contrat
-                  </Button>
-                </Box>
-              )}
+              Votre investissement n'a pas encore été validé par l'équipe. Merci de patienter.
             </Alert>
           ) : steps.length === 0 ? (
             <Alert severity="info" sx={{ mt: 2 }}>

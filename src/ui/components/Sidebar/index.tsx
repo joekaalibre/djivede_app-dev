@@ -272,6 +272,7 @@ const Sidebar = ({
     { to: "/dashboard/admin/overview", label: "Aperçu", icon: <LayoutDashboard size={20} /> },
     { to: "/dashboard/admin/projects", label: "Projets", icon: <FolderKanban size={20} /> },
     { to: "/dashboard/admin/validate-investments", label: "Validation paiements", icon: <ShieldCheck size={20} /> },
+    { to: "/dashboard/admin/paiements-valides", label: "Paiements validés", icon: <TrendingUp size={20} /> },
     { to: "/dashboard/admin/engagements", label: "Engagements", icon: <ShieldCheck size={20} /> },
     { to: "/dashboard/admin/utilisateurs", label: "Utilisateurs", icon: <Users size={20} /> },
     { to: "/dashboard/admin/leads", label: "Leads", icon: <UserPlus size={20} /> },

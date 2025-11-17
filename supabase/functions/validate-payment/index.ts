@@ -32,6 +32,8 @@ Deno.serve(async (req: Request) => {
     const body: ValidatePaymentRequest = await req.json();
     const { engagement_id, user_id, email, full_name, project_id, amount, action } = body;
 
+    console.log("✅ Validation payment request:", { user_id, email, project_id, amount, action });
+
     if (!user_id || !project_id || !amount || !email || !action) {
       return new Response(
         JSON.stringify({ error: "Champs requis manquants." }),
@@ -40,14 +42,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "validé") {
-      // 1. Marquer l'intention comme payée
-      await supabaseAdmin
+      // 1. Marquer toutes les intentions comme payées
+      const { error: intentionError } = await supabaseAdmin
         .from("investment_intentions")
-        .update({ paid: true })
+        .update({ paid: true, status: "completed" })
         .eq("email", email)
-        .eq("project_id", project_id);
+        .eq("project_id", project_id)
+        .eq("paid", false);
 
-      // 2. Vérifier si invest_subscribers existe déjà
+      if (intentionError) {
+        console.error("❌ Erreur update intentions:", intentionError);
+      }
+
+      // 2. Créer ou mettre à jour invest_subscribers
       const { data: existingSub } = await supabaseAdmin
         .from("invest_subscribers")
         .select("id")
@@ -56,23 +63,43 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (existingSub?.id) {
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from("invest_subscribers")
-          .update({ paid: true, amount_paid: amount, total_to_pay: amount })
+          .update({ 
+            paid: true, 
+            amount_paid: amount, 
+            total_to_pay: amount,
+            confirmed: true 
+          })
           .eq("id", existingSub.id);
+
+        if (updateError) {
+          console.error("❌ Erreur update subscriber:", updateError);
+          throw updateError;
+        }
+        console.log("✅ Subscriber updated:", existingSub.id);
       } else {
-        await supabaseAdmin.from("invest_subscribers").insert({
-          user_id,
-          email,
-          full_name,
-          project_ref: project_id,
-          paid: true,
-          amount_paid: amount,
-          total_to_pay: amount,
-        });
+        const { error: insertError } = await supabaseAdmin
+          .from("invest_subscribers")
+          .insert({
+            user_id,
+            email,
+            full_name,
+            project_ref: project_id,
+            paid: true,
+            confirmed: true,
+            amount_paid: amount,
+            total_to_pay: amount,
+          });
+
+        if (insertError) {
+          console.error("❌ Erreur insert subscriber:", insertError);
+          throw insertError;
+        }
+        console.log("✅ Subscriber created");
       }
 
-      // 3. Resync user data (simplifié)
+      // 3. Resync user data (lier intentions orphelines)
       await supabaseAdmin
         .from("investment_intentions")
         .update({ user_id })
@@ -86,34 +113,63 @@ Deno.serve(async (req: Request) => {
         .is("user_id", null);
 
       // 4. Allocation des modules via RPC
-      await supabaseAdmin.rpc("allocate_modules_for_user", {
-        p_user_id: user_id,
-        p_project_id: project_id,
-        p_invested_amount: amount,
-      });
+      console.log("🔄 Allocation modules...");
+      const { data: allocResult, error: allocError } = await supabaseAdmin.rpc(
+        "allocate_modules_for_user",
+        {
+          p_user_id: user_id,
+          p_project_id: project_id,
+          p_invested_amount: amount,
+        }
+      );
 
-      // 5. Gérer l'engagement
-      let engagementIdToUpdate = engagement_id;
+      if (allocError) {
+        console.error("❌ Erreur allocation:", allocError);
+        throw allocError;
+      }
+      console.log("✅ Modules allocated:", allocResult);
+
+      // 5. Créer ou mettre à jour l'engagement
+      let finalEngagementId = engagement_id;
+
       if (!engagement_id || engagement_id === "simulateur") {
-        const { data: insertEng } = await supabaseAdmin
+        // Créer un nouvel engagement
+        const { data: newEng, error: engError } = await supabaseAdmin
           .from("invest_engagements")
           .insert({
             user_id,
             project_id,
             engagement_amount: amount,
-            status: "en_attente",
+            amount: amount,
+            status: "validé",
+            contract_sent: false,
+            contract_signed: false,
+            fee_applied: 0,
           })
           .select()
           .single();
-        engagementIdToUpdate = insertEng?.id;
+
+        if (engError) {
+          console.error("❌ Erreur création engagement:", engError);
+          throw engError;
+        }
+        finalEngagementId = newEng?.id;
+        console.log("✅ Engagement created:", finalEngagementId);
       } else {
-        await supabaseAdmin
+        // Mettre à jour l'engagement existant
+        const { error: updateEngError } = await supabaseAdmin
           .from("invest_engagements")
           .update({ status: "validé" })
           .eq("id", engagement_id);
+
+        if (updateEngError) {
+          console.error("❌ Erreur update engagement:", updateEngError);
+          throw updateEngError;
+        }
+        console.log("✅ Engagement updated:", engagement_id);
       }
 
-      // 6. Log promo redemption
+      // 6. Log promo redemption si applicable
       try {
         const { data: lastIntention } = await supabaseAdmin
           .from("investment_intentions")
@@ -132,12 +188,13 @@ Deno.serve(async (req: Request) => {
             intention_id: lastIntention.id,
             status: "redeemed",
           });
+          console.log("✅ Promo redeemed:", lastIntention.promo_code);
         }
       } catch (e) {
-        console.warn("⚠️ redemption log failed (non bloquant):", e.message);
+        console.warn("⚠️ Redemption log failed (non-bloquant):", e.message);
       }
 
-      // 7. Envoyer email de confirmation (via edge function email)
+      // 7. Envoyer email de confirmation
       try {
         await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
           method: "POST",
@@ -151,21 +208,28 @@ Deno.serve(async (req: Request) => {
             data: { full_name, amount },
           }),
         });
+        console.log("✅ Email sent");
       } catch (emailErr) {
-        console.warn("Email envoi échoué (non bloquant):", emailErr);
+        console.warn("⚠️ Email failed (non-bloquant):", emailErr);
       }
 
       return new Response(
-        JSON.stringify({ success: true, engagement_id: engagementIdToUpdate }),
+        JSON.stringify({ 
+          success: true, 
+          engagement_id: finalEngagementId,
+          allocations: allocResult 
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (action === "rejeté" && engagement_id) {
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("invest_engagements")
         .update({ status: "rejeté" })
         .eq("id", engagement_id);
+
+      if (error) throw error;
 
       // Envoyer email de rejet
       try {
@@ -182,7 +246,7 @@ Deno.serve(async (req: Request) => {
           }),
         });
       } catch (emailErr) {
-        console.warn("Email rejet échoué (non bloquant):", emailErr);
+        console.warn("⚠️ Email rejet failed (non-bloquant):", emailErr);
       }
 
       return new Response(
@@ -196,7 +260,7 @@ Deno.serve(async (req: Request) => {
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("❌ Erreur validate-payment:", err);
+    console.error("❌ Erreur globale validate-payment:", err);
     return new Response(
       JSON.stringify({ error: err.message || "Erreur serveur" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

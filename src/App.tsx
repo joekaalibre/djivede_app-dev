@@ -64,7 +64,9 @@ import AdminNewsPage from "./pages/AdminNewsPage";
 import AdminPropulseSubmissionsPage from "./pages/AdminPropulseSubmissionsPage";
 import AdminEditProjectPage from "./pages/AdminEditProjectPage";
 import AdminPhase2Page from "./pages/AdminPhase2Page";
-import AdminMessagesPage from "./pages/AdminMessagesPage";  
+import AdminMessagesPage from "./pages/AdminMessagesPage";
+import AdminProjectPhasesPage from "./pages/AdminProjectPhasesPage";
+import AdminValidatedPaymentsPage from "./pages/AdminValidatedPaymentsPage";  
 
 // 🎯 Gate d’index de dashboard (redirige selon le rôle)
 import DashboardIndexGate from "./pages/DashboardIndexGate";
@@ -126,7 +128,9 @@ function App() {
               <Route path="admin/utilisateurs/:id" element={<RequireAdmin><AdminUserDetailsPage /></RequireAdmin>} />
               <Route path="admin/utilisateurs/new" element={<RequireAdmin><AdminUserDetailsPage /></RequireAdmin>} />
               <Route path="admin/modules/:id" element={<RequireAdmin><AdminModulesPage /></RequireAdmin>} />
+              <Route path="admin/projects/:id/phases" element={<RequireAdmin><AdminProjectPhasesPage /></RequireAdmin>} />
               <Route path="admin/validate-investments" element={<RequireAdmin><AdminInvestValidatePage /></RequireAdmin>} />
+              <Route path="admin/paiements-valides" element={<RequireAdmin><AdminValidatedPaymentsPage /></RequireAdmin>} />
               <Route path="admin/emails" element={<RequireAdmin><AdminEmailTemplatesPage /></RequireAdmin>} />
               <Route path="admin/notifications" element={<RequireAdmin><AdminNotificationsPage /></RequireAdmin>} />
               <Route path="admin/settings" element={<RequireAdmin><AdminSettingsPage /></RequireAdmin>} />

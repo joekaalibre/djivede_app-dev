@@ -43,11 +43,11 @@ const AdminInvestValidatePage = () => {
         const { data: intentionsData, error: intErr } = await supabase
           .from("investment_intentions")
           .select("id, email, full_name, amount, method, created_at, project_id, paid, user_id")
-          .eq("paid", false);
+          .or("paid.is.null,paid.eq.false");
         if (intErr) throw intErr;
 
         const groupedIntentions = (intentionsData || [])
-          .filter((i) => !!i.user_id)
+          .filter((i) => !!i.user_id && !i.paid)
           .map((i) => ({
             ...i,
             project_title: projectsMap[i.project_id] || "—",
@@ -58,10 +58,10 @@ const AdminInvestValidatePage = () => {
         const { data: engagementsData, error: engErr } = await supabase
           .from("invest_engagements")
           .select("*, profiles(full_name, email), invest_projects(title)")
-          .eq("status", "en_attente")
+          .in("status", ["en_attente", "signé"])
           .order("created_at", { ascending: false });
         if (engErr) throw engErr;
-        setEngagements(engagementsData);
+        setEngagements(engagementsData || []);
 
         const { data: validatedData, error: valErr } = await supabase
           .from("invest_engagements")
